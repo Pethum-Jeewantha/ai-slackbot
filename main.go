@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/shomali11/slacker"
+	witai "github.com/wit-ai/wit-go/v2"
 	"log"
 	"os"
 )
@@ -27,6 +29,7 @@ func main() {
 	}
 
 	bot := slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"), os.Getenv("SLACK_APP_TOKEN"))
+	client := witai.NewClient(os.Getenv("WIT_AI_TOKEN"))
 
 	go printCommandEvents(bot.CommandEvents())
 
@@ -35,7 +38,13 @@ func main() {
 		Examples:    []string{"Who is the president of sri lanka"},
 		Handler: func(botContext slacker.BotContext, request slacker.Request, writer slacker.ResponseWriter) {
 			query := request.Param("message")
-			fmt.Println(query)
+
+			msg, _ := client.Parse(&witai.MessageRequest{
+				Query: query,
+			})
+			data, _ := json.MarshalIndent(msg, "", "    ")
+			rough := string(data[:])
+			fmt.Println(rough)
 
 			writErr := writer.Reply("Received")
 			if writErr != nil {
