@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Krognol/go-wolfram"
 	"github.com/joho/godotenv"
 	"github.com/shomali11/slacker"
+	"github.com/tidwall/gjson"
 	witai "github.com/wit-ai/wit-go/v2"
 	"log"
 	"os"
@@ -30,6 +32,7 @@ func main() {
 
 	bot := slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"), os.Getenv("SLACK_APP_TOKEN"))
 	client := witai.NewClient(os.Getenv("WIT_AI_TOKEN"))
+	wolframClient := &wolfram.Client{AppID: os.Getenv("WOLFRAM_APP_ID")}
 
 	go printCommandEvents(bot.CommandEvents())
 
@@ -44,9 +47,15 @@ func main() {
 			})
 			data, _ := json.MarshalIndent(msg, "", "    ")
 			rough := string(data[:])
-			fmt.Println(rough)
+			value := gjson.Get(rough, "entities.wit$wolfram_search_query:wolfram_search_query.0.value")
+			answer := value.String()
+			res, wolframErr := wolframClient.GetSpokentAnswerQuery(answer, wolfram.Metric, 1000)
+			if wolframErr != nil {
+				log.Fatalln(wolframErr)
+			}
+			fmt.Println(res)
 
-			writErr := writer.Reply("Received")
+			writErr := writer.Reply(res)
 			if writErr != nil {
 				log.Fatalln(writErr)
 			}
