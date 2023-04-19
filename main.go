@@ -13,9 +13,13 @@ import (
 	"os"
 )
 
+var bot *slacker.Slacker
+var client *witai.Client
+var wolframClient *wolfram.Client
+
 func printCommandEvents(analyticsChannel <-chan *slacker.CommandEvent) {
 	for event := range analyticsChannel {
-		fmt.Println("Command Events")
+		fmt.Println("==== Command Events ====")
 		fmt.Println(event.Timestamp)
 		fmt.Println(event.Command)
 		fmt.Println(event.Parameters)
@@ -30,37 +34,13 @@ func main() {
 		log.Fatalln(dotenvErr)
 	}
 
-	bot := slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"), os.Getenv("SLACK_APP_TOKEN"))
-	client := witai.NewClient(os.Getenv("WIT_AI_TOKEN"))
-	wolframClient := &wolfram.Client{AppID: os.Getenv("WOLFRAM_APP_ID")}
+	bot = slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"), os.Getenv("SLACK_APP_TOKEN"))
+	client = witai.NewClient(os.Getenv("WIT_AI_TOKEN"))
+	wolframClient = &wolfram.Client{AppID: os.Getenv("WOLFRAM_APP_ID")}
 
 	go printCommandEvents(bot.CommandEvents())
 
-	bot.Command("query for bot - <message>", &slacker.CommandDefinition{
-		Description: "Send any question to wolfram",
-		Examples:    []string{"Who is the president of sri lanka"},
-		Handler: func(botContext slacker.BotContext, request slacker.Request, writer slacker.ResponseWriter) {
-			query := request.Param("message")
-
-			msg, _ := client.Parse(&witai.MessageRequest{
-				Query: query,
-			})
-			data, _ := json.MarshalIndent(msg, "", "    ")
-			rough := string(data[:])
-			value := gjson.Get(rough, "entities.wit$wolfram_search_query:wolfram_search_query.0.value")
-			answer := value.String()
-			res, wolframErr := wolframClient.GetSpokentAnswerQuery(answer, wolfram.Metric, 1000)
-			if wolframErr != nil {
-				log.Fatalln(wolframErr)
-			}
-			fmt.Println(res)
-
-			writErr := writer.Reply(res)
-			if writErr != nil {
-				log.Fatalln(writErr)
-			}
-		},
-	})
+	CreateCommand()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -69,4 +49,42 @@ func main() {
 	if botErr != nil {
 		log.Fatalln(botErr)
 	}
+}
+
+func CreateCommand() {
+	bot.Command("Hey <message>", &slacker.CommandDefinition{
+		Description: "Send any question to wolfram",
+		Examples:    []string{"Who is the president of sri lanka"},
+		Handler: func(botContext slacker.BotContext, request slacker.Request, writer slacker.ResponseWriter) {
+			query := request.Param("message")
+			query = getReceivedQuery(query)
+
+			res := getAnswer(query)
+
+			writErr := writer.Reply(res)
+			if writErr != nil {
+				log.Fatalln(writErr)
+			}
+		},
+	})
+}
+
+func getReceivedQuery(query string) string {
+	msg, _ := client.Parse(&witai.MessageRequest{
+		Query: query,
+	})
+	data, _ := json.MarshalIndent(msg, "", "    ")
+	rough := string(data[:])
+	value := gjson.Get(rough, "entities.wit$wolfram_search_query:wolfram_search_query.0.value")
+
+	return value.String()
+}
+
+func getAnswer(query string) string {
+	res, wolframErr := wolframClient.GetSpokentAnswerQuery(query, wolfram.Metric, 1000)
+	if wolframErr != nil {
+		log.Fatalln(wolframErr)
+	}
+
+	return res
 }
