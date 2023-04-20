@@ -38,9 +38,12 @@ func (slackService *SlackService) CreateCommand() {
 		Examples:    []string{"Who is the president of sri lanka"},
 		Handler: func(botContext slacker.BotContext, request slacker.Request, writer slacker.ResponseWriter) {
 			query := request.Param("message")
-			query = slackService.witAIService.getReceivedQuery(query)
+			query, confidence := slackService.witAIService.getReceivedQuery(query)
 
-			res := slackService.wolframService.getAnswer(query)
+			res := "Couldn't Understand"
+			if confidence >= 0.7 {
+				res = slackService.wolframService.getAnswer(query)
+			}
 
 			writErr := writer.Reply(res)
 			if writErr != nil {

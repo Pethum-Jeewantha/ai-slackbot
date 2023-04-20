@@ -21,13 +21,15 @@ func (witAIService *WitAIService) newWitAIService() *WitAIService {
 	return witAIService
 }
 
-func (witAIService *WitAIService) getReceivedQuery(query string) string {
+func (witAIService *WitAIService) getReceivedQuery(query string) (string, float64) {
 	msg, _ := witAIService.client.Parse(&witai.MessageRequest{
 		Query: query,
 	})
 	data, _ := json.MarshalIndent(msg, "", "    ")
 	rough := string(data[:])
-	value := gjson.Get(rough, "entities.wit$wolfram_search_query:wolfram_search_query.0.value")
 
-	return value.String()
+	value := gjson.Get(rough, "entities.wit$wolfram_search_query:wolfram_search_query.0.value")
+	confidence := gjson.Get(rough, "entities.wit$wolfram_search_query:wolfram_search_query.0.confidence")
+
+	return value.String(), confidence.Float()
 }
