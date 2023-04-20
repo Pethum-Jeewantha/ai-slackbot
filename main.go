@@ -36,7 +36,7 @@ func printCommandEvents(analyticsChannel <-chan *slacker.CommandEvent) {
 func main() {
 	dotenvErr := godotenv.Load(".env")
 	if dotenvErr != nil {
-		log.Fatalln(dotenvErr)
+		fmt.Println(".env file not found")
 	}
 
 	bot = slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"), os.Getenv("SLACK_APP_TOKEN"))
